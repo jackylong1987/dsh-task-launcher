@@ -13,6 +13,14 @@
   ],
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jackylong1987/dsh-task-launcher.git"
+  },
+  "homepage": "https://github.com/jackylong1987/dsh-task-launcher#readme",
+  "bugs": {
+    "url": "https://github.com/jackylong1987/dsh-task-launcher/issues"
+  },
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
