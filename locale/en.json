@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Fee ledger · task menu",
+    "title": "Scheduled task launcher",
     "description": "Adds a Tasks entry to the session tab row (left of Session files): the menu lists every active scheduled task; picking one asks for confirmation first, then posts that task's own reminder text into the current session (read-only; no file writes)."
   },
   "dict": {
