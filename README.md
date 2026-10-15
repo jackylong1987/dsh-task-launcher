@@ -69,16 +69,16 @@ ctx.remote.session.prompt({
 
 返回是 **Result 信封** `{ ok: true, value: { accepted: true } }` / `{ ok: false, error }` —— 按 `.ok` 判。
 
-## 安装（已在本机完成）
+## 安装
 
 ```bash
 # 1) profile 依赖里加 link:
-#    /volume1/homes/dsh/.dsh/profiles/web/package.json
-#    dependencies["dsh-jiaofei-ledger"] = "link:/volume1/homes/dsh/workspace/jacky/plugin-lab/dsh-jiaofei-ledger"
-cd /volume1/homes/dsh/.dsh/profiles/web && pnpm install
+#    $DSH_HOME/profiles/web/package.json
+#    dependencies["dsh-jiaofei-ledger"] = "link:<插件所在目录>"
+cd "$DSH_HOME/profiles/web" && pnpm install
 
 # 2) 再把 "dsh-jiaofei-ledger" 加进 dsh.profile.bundles
-#    （分两步是刻意的：先有 symlink、再改 bundles，见 _session.md 的 HMR 陷阱）
+#    （分两步是刻意的：先有 symlink、再改 bundles）
 ```
 
 ## 让用户看到
@@ -88,15 +88,15 @@ cd /volume1/homes/dsh/.dsh/profiles/web && pnpm install
 ## 自检（离线，桩 React / 桩 primitives / 桩 DOM / 桩 ctx）
 
 ```bash
-node /volume1/homes/dsh/workspace/jacky/plugin-lab/_verify/verify.mjs
+node <工作区>/plugin-lab/_verify/verify.mjs
 # 期望：通过 N / 失败 0
 ```
 
 ## 回滚
 
 ```bash
-cd /volume1/homes/dsh/.dsh/profiles/web
-cp -p package.json.bak-tasks-20261012-094935 package.json
+cd "$DSH_HOME/profiles/web"
+cp -p package.json.bak-tasks-<时间戳> package.json
 pnpm install          # HMR 会把插件行摘掉
 ```
 
