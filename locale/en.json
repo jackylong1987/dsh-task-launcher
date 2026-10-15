@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "title": "Fee ledger · task menu",
+    "description": "Adds a Tasks entry to the session tab row (left of Session files): the menu lists every active scheduled task; picking one asks for confirmation first, then posts that task's own reminder text into the current session (read-only; no file writes)."
+  },
+  "dict": {
+    "action.label": "Tasks",
+    "action.aria": "Automation tasks",
+    "action.title": "Pick an automation task and run it in this session right away",
+    "menu.loading": "Loading tasks…",
+    "menu.empty": "No automation tasks yet",
+    "menu.error": "Could not load tasks: {code}",
+    "menu.retry": "Retry",
+    "menu.group.schedule": "Scheduled tasks",
+    "menu.group.builtin": "Built-in fallback",
+    "menu.next": "Next {time}",
+    "menu.nextNow": "Due now",
+    "menu.builtin.label": "Unpaid fees (fee ledger)",
+    "menu.builtin.note": "Fallback: normally a scheduled task",
+    "state.sending": "Posting…",
+    "state.sent": "Posted",
+    "state.failed": "Post failed: {code}",
+    "confirm.title": "Run this task?",
+    "confirm.body": "It will run in the current session immediately.",
+    "confirm.session": "Current session: {title}",
+    "confirm.cancel": "Cancel",
+    "confirm.run": "Run",
+    "confirm.close": "Cancel and close",
+    "tab.label": "Tasks",
+    "tab.aria": "Tasks: pick an automation task and run it in this session after confirming"
+  }
+}

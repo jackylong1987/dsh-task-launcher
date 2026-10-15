@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "title": "缴费台账·自动化任务菜单",
+    "description": "在会话标题下的页签行（「会话文件」左边）加一个「任务」入口：下拉自动列出所有启用的定时任务，点一条先弹确认，确认后把该任务的提醒原文投进当前会话立即执行（只读，不改文件、不写远程）。"
+  },
+  "dict": {
+    "action.label": "任务",
+    "action.aria": "自动化任务",
+    "action.title": "选一条自动化任务，确认后立刻在当前会话执行它",
+    "menu.loading": "读取任务…",
+    "menu.empty": "还没有自动化任务",
+    "menu.error": "任务读取失败：{code}",
+    "menu.retry": "重试",
+    "menu.group.schedule": "自动化任务",
+    "menu.group.builtin": "内置兜底",
+    "menu.next": "下次 {time}",
+    "menu.nextNow": "即将执行",
+    "menu.builtin.label": "未缴费清单（缴费台账）",
+    "menu.builtin.note": "兜底项：正常应走定时任务",
+    "state.sending": "投递中…",
+    "state.sent": "已投递",
+    "state.failed": "投递失败：{code}",
+    "confirm.title": "执行这条任务？",
+    "confirm.body": "将在当前会话立即执行。",
+    "confirm.session": "当前会话：{title}",
+    "confirm.cancel": "取消",
+    "confirm.run": "执行",
+    "confirm.close": "取消并关闭",
+    "tab.label": "任务",
+    "tab.aria": "任务：选一条自动化任务，确认后在当前会话执行"
+  }
+}

@@ -1,0 +1,10 @@
+# dsh-jiaofei-ledger 的 bundle patch：把插件插进 profile 的层栈。
+# 只声明本插件自己（入口、ID）；不替核心或别的插件写配置。
+#
+# 本插件是**纯客户端**的：宿主半边（lib/index.js）只占位，不注册路由、不读配置、不落盘，
+# 所以这里没有 `config:`，也不需要 `webRuntime` / `trustedHosts` 那一套
+# （与 dsh-long-composer 同一口径）。
+# 交互与远程调用全在 client/client.js（浏览器里跑，改完刷新页面即生效，不用重启 DSH）。
+- insert:
+    - id: dsh-jiaofei-ledger
+      name: dsh-jiaofei-ledger

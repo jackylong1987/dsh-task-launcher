@@ -1,0 +1,4 @@
+node_modules/
+*.bak*
+_session.md
+npm-debug.log*
