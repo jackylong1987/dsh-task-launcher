@@ -729,7 +729,7 @@ window.__ModuleLoader__.load({
      * 候选落点清单（**只做契约记录，不自动登记**）。
      * 每条的 `register` 是"选定该落点后，填进 `SLOT_BINDINGS` 的那一行"。
      * 契约字段（`key`/`id`/`order`/`priority`/scope/能否拿到 `sessionId`）都已在
-     * DSH 自带包的 `lib/types/client/contract/slots.d.ts` 里现场核对过，见 `_session.md`。
+     * DSH 自带包的 `lib/types/client/contract/slots.d.ts` 里现场核对过（调查记录见工作区 `_session-notes/` 下同名插件的会话档）。
      */
     const CANDIDATE_SLOTS = {
       // ① 右侧栏新增一个「任务」标签页（与文档预览/文件并列）。
