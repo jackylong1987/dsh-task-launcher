@@ -1,4 +1,4 @@
-# dsh-jiaofei-ledger
+# dsh-task-launcher
 
 给 DSH（DeepSeek Harness）Web GUI 加一个**「任务」入口**：落在**会话标题下面那行页签**里
 （位置＝「会话文件」标签的**左边**，图标 `IconChecklistOutlineRegular` + 文字「任务」）。
@@ -26,7 +26,7 @@
 整体换成那个视图**，不是"加一个入口"）。而「会话文件」本身就是第三方插件 `dsh-long-plugins`
 用 DOM 注入放进去的，所以本插件沿用同一机制：
 
-- 注入节点 `#dsh-jiaofei-ledger-task-tab`，`MutationObserver` 保证被宿主重渲染抹掉后能补回；
+- 注入节点 `#dsh-task-launcher-task-tab`，`MutationObserver` 保证被宿主重渲染抹掉后能补回；
 - React 树用 `reactDom.createPortal` 渲染进注入节点（事件照常工作，宿主重渲染抹不掉 React 树）；
 - 外观**不硬凑 padding**：从旁边真实页签读 `fontSize/fontWeight/lineHeight/letterSpacing/fontFamily/color`
   同步过来；垂直位置由 CSS 的 `align-self:flex-start` + `padding:0 0 9px` 保证
@@ -74,10 +74,10 @@ ctx.remote.session.prompt({
 ```bash
 # 1) profile 依赖里加 link:
 #    $DSH_HOME/profiles/web/package.json
-#    dependencies["dsh-jiaofei-ledger"] = "link:<插件所在目录>"
+#    dependencies["dsh-task-launcher"] = "link:<插件所在目录>"
 cd "$DSH_HOME/profiles/web" && pnpm install
 
-# 2) 再把 "dsh-jiaofei-ledger" 加进 dsh.profile.bundles
+# 2) 再把 "dsh-task-launcher" 加进 dsh.profile.bundles
 #    （分两步是刻意的：先有 symlink、再改 bundles）
 ```
 

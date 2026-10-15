@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-jiaofei-ledger',
+  id: 'dsh-task-launcher',
   factory: (require) => {
     const module = { exports: {} }
     const exports = module.exports
@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
     const reactDom = require('react-dom')
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
-    // ===== dsh-jiaofei-ledger：会话头部动作区的「任务」下拉菜单 =====
+    // ===== dsh-task-launcher：会话头部动作区的「任务」下拉菜单 =====
     // 一个按钮 + 一个下拉：下拉内容**自动来自定时任务**（`ctx.remote.schedule.list` 里
     // `status === 'active'` 的全部任务），点某条任务 ⇒ **先弹确认** ⇒ 确认后才把**该任务的 `prompt` 原文**
     // 当成用户消息投进**当前会话**（走既有的 `ctx.remote.session.prompt`，`mode: 'queue'`）。
@@ -52,7 +52,7 @@ window.__ModuleLoader__.load({
     // 迭代期注意：本文件是**客户端 bundle**，改完刷新页面即可，不用重启 DSH。
 
     /** 本插件的 locale 命名空间。 */
-    const NS = 'jiaofei-ledger'
+    const NS = 'task-launcher'
     /** 投递模式：'queue'（不打断）或 'steer'（打断/抢插队）。 */
     const MODE = 'queue'
     /** 用户没给时区时的兜底（本机在国内）。 */
@@ -61,7 +61,7 @@ window.__ModuleLoader__.load({
     const OK_HINT_MS = 4000
     const FAIL_HINT_MS = 9000
     /** 下拉里"内置兜底项"的固定 id（与定时任务的 id 不会撞：任务 id 是宿主发的 uuid）。 */
-    const BUILTIN_ID = 'dsh-jiaofei-ledger:builtin-unpaid-list'
+    const BUILTIN_ID = 'dsh-task-launcher:builtin-unpaid-list'
     /** `schedule/list` 只返回该会话相关的任务；`status` 为 'active' 的才列进下拉。 */
     const ACTIVE = 'active'
     /** 「会话标签行」落点的 DOM 标记（核心 ui-conversation 写的稳定标记）。 */
@@ -69,7 +69,7 @@ window.__ModuleLoader__.load({
     /** 「会话文件」标签按钮的 id（`dsh-long-plugins` 自己注入的，就是它把「会话文件」放进那行）。 */
     const SESSION_FILES_BTN_ID = 'dsh-long-session-files-btn'
     /** 本插件注入的「任务」标签按钮 id。 */
-    const TASK_TAB_BTN_ID = 'dsh-jiaofei-ledger-task-tab'
+    const TASK_TAB_BTN_ID = 'dsh-task-launcher-task-tab'
     /** 宿主写在会话正文容器上的 sessionId 标记（页签行里没有 sessionId，只能从这里取）。 */
     const SESSION_ATTR = 'data-conversation-session'
 
@@ -147,16 +147,16 @@ window.__ModuleLoader__.load({
 
     /** 样式。用核心的设计令牌，跟宿主其它头部控件同一个观感（下拉卡片本身由 primitives 画）。 */
     const CSS = `
-.dsh-jiaofei-ledger{display:inline-flex;align-items:center;gap:6px;min-width:0}
-.dsh-jiaofei-ledger-btn{font:inherit;font-size:12px;line-height:18px;min-height:28px;padding:3px 10px;white-space:nowrap;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-tertiary);cursor:pointer}
-.dsh-jiaofei-ledger-btn:hover:not(:disabled),.dsh-jiaofei-ledger-btn:focus-visible{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-fill-l1)}
-.dsh-jiaofei-ledger-btn:disabled{cursor:default;opacity:.55}
-.dsh-jiaofei-ledger-btn.is-ok{color:var(--dsw-alias-state-business-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 45%,transparent)}
-.dsh-jiaofei-ledger-btn.is-err{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent)}
-.dsh-jiaofei-ledger-caret{font-size:9px;line-height:1;opacity:.7}
-.dsh-jiaofei-ledger-hint{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
-.dsh-jiaofei-ledger-hint.is-err{color:var(--dsw-alias-state-error-primary)}
-.dsh-jiaofei-ledger-note{font-size:11px;line-height:16px;color:var(--dsw-alias-label-quaternary)}
+.dsh-task-launcher{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.dsh-task-launcher-btn{font:inherit;font-size:12px;line-height:18px;min-height:28px;padding:3px 10px;white-space:nowrap;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-tertiary);cursor:pointer}
+.dsh-task-launcher-btn:hover:not(:disabled),.dsh-task-launcher-btn:focus-visible{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-fill-l1)}
+.dsh-task-launcher-btn:disabled{cursor:default;opacity:.55}
+.dsh-task-launcher-btn.is-ok{color:var(--dsw-alias-state-business-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 45%,transparent)}
+.dsh-task-launcher-btn.is-err{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent)}
+.dsh-task-launcher-caret{font-size:9px;line-height:1;opacity:.7}
+.dsh-task-launcher-hint{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.dsh-task-launcher-hint.is-err{color:var(--dsw-alias-state-error-primary)}
+.dsh-task-launcher-note{font-size:11px;line-height:16px;color:var(--dsw-alias-label-quaternary)}
 /* 会话标签行落点：只包住一个按钮，提示用绝对定位，避免把页签行挤动。
    对齐的关键：页签容器 .wSkVaW_tabs 是 display:flex 且没有 align-items
    ⇒ 默认 stretch，每个直接子元素都被拉到整行高。旁边那些页签是「按钮本身」当 flex 子项：
@@ -164,26 +164,26 @@ window.__ModuleLoader__.load({
    所以这里必须 align-self:flex-start（＝自己不被拉伸），否则外层容器被拉到整行高、再
    align-items:center 把按钮垂直居中，就会比旁边页签偏高约半行（用户实测的偏移）。
    第三方「会话文件」页签也是这么解决的（dsh-long-plugins 给按钮 align-self:flex-start）。 */
-.dsh-jiaofei-ledger.is-tab{position:relative;display:inline-flex;align-self:flex-start;align-items:flex-start;margin:0}
+.dsh-task-launcher.is-tab{position:relative;display:inline-flex;align-self:flex-start;align-items:flex-start;margin:0}
 /* 外观尽量对齐旁边页签：与核心 .tab 同口径（padding:0 0 9px、13px/500/16px 行高、无边框）。
    下面 syncTabGeometry() 还会把宿主页签的实测排版（字号/行高/字重/字距/颜色）盖上来，
    所以核心改版后也不会错位；不再从按钮上量 padding（避免把"stretch 后的盒子"量进来）。 */
-.dsh-jiaofei-ledger-tab{box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;margin:0;padding:0 0 9px;border:none;background:0 0;color:var(--dsw-alias-label-tertiary);font-size:13px;font-weight:500;line-height:16px;cursor:pointer}
-.dsh-jiaofei-ledger-tab:hover:not(:disabled),.dsh-jiaofei-ledger-tab:focus-visible{color:var(--dsw-alias-label-secondary)}
-.dsh-jiaofei-ledger-tab:disabled{cursor:default;opacity:.55}
-.dsh-jiaofei-ledger-tab.is-ok{color:var(--dsw-alias-state-business-primary)}
-.dsh-jiaofei-ledger-tab.is-err{color:var(--dsw-alias-state-error-primary)}
-.dsh-jiaofei-ledger-tab .dsh-jiaofei-ledger-caret{font-size:8px}
-.dsh-jiaofei-ledger.is-tab .dsh-jiaofei-ledger-hint{position:absolute;left:0;top:100%;max-width:220px}
-.dsh-jiaofei-ledger-item{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.dsh-task-launcher-tab{box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;margin:0;padding:0 0 9px;border:none;background:0 0;color:var(--dsw-alias-label-tertiary);font-size:13px;font-weight:500;line-height:16px;cursor:pointer}
+.dsh-task-launcher-tab:hover:not(:disabled),.dsh-task-launcher-tab:focus-visible{color:var(--dsw-alias-label-secondary)}
+.dsh-task-launcher-tab:disabled{cursor:default;opacity:.55}
+.dsh-task-launcher-tab.is-ok{color:var(--dsw-alias-state-business-primary)}
+.dsh-task-launcher-tab.is-err{color:var(--dsw-alias-state-error-primary)}
+.dsh-task-launcher-tab .dsh-task-launcher-caret{font-size:8px}
+.dsh-task-launcher.is-tab .dsh-task-launcher-hint{position:absolute;left:0;top:100%;max-width:220px}
+.dsh-task-launcher-item{display:inline-flex;align-items:center;gap:8px;min-width:0}
 /* 列表项前导圆点：**纯装饰，不表达启用状态**（用户明确）。固定中性灰。 */
-.dsh-jiaofei-ledger-dot{flex:none;width:5px;height:5px;border-radius:50%;background:var(--dsw-alias-label-quaternary,currentColor);opacity:.75}
+.dsh-task-launcher-dot{flex:none;width:5px;height:5px;border-radius:50%;background:var(--dsw-alias-label-quaternary,currentColor);opacity:.75}
 /* 内置兜底项用描边圈，只是跟真任务视觉上区分。 */
-.dsh-jiaofei-ledger-dot.is-outline{background:0 0;box-shadow:inset 0 0 0 1px var(--dsw-alias-label-quaternary,currentColor)}
-.dsh-jiaofei-ledger-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dsh-jiaofei-ledger-state{padding:4px 8px}
-.dsh-jiaofei-ledger-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
-.dsh-jiaofei-ledger-confirm-title{margin:0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}
+.dsh-task-launcher-dot.is-outline{background:0 0;box-shadow:inset 0 0 0 1px var(--dsw-alias-label-quaternary,currentColor)}
+.dsh-task-launcher-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-task-launcher-state{padding:4px 8px}
+.dsh-task-launcher-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.dsh-task-launcher-confirm-title{margin:0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}
 `
 
     /**
@@ -525,40 +525,40 @@ window.__ModuleLoader__.load({
         const hasTasks = tasks.length > 0
         const items = []
         if (hasTasks) {
-          items.push({ type: 'label', id: 'dsh-jiaofei-ledger:group-schedule', text: t('menu.group.schedule') })
+          items.push({ type: 'label', id: 'dsh-task-launcher:group-schedule', text: t('menu.group.schedule') })
           for (const task of tasks) {
             const next = formatScheduledAt(task.scheduledAt, Date.now())
             items.push({
               id: task.id,
-              label: React.createElement('span', { className: 'dsh-jiaofei-ledger-item' },
+              label: React.createElement('span', { className: 'dsh-task-launcher-item' },
                 // 前导小圆点：**纯装饰**（用户明确：不表达启用/停用语义），所以固定中性灰，
                 // 只有"内置兜底项"那一条套一个描边圈，好跟真任务区分开。
-                React.createElement('span', { className: 'dsh-jiaofei-ledger-dot', 'aria-hidden': 'true' }),
-                React.createElement('span', { className: 'dsh-jiaofei-ledger-item-title' }, taskLabel(task)),
+                React.createElement('span', { className: 'dsh-task-launcher-dot', 'aria-hidden': 'true' }),
+                React.createElement('span', { className: 'dsh-task-launcher-item-title' }, taskLabel(task)),
                 next.text !== ''
-                  ? React.createElement('span', { className: 'dsh-jiaofei-ledger-note' }, t('menu.next', { time: next.text }))
-                  : (next.due ? React.createElement('span', { className: 'dsh-jiaofei-ledger-note' }, t('menu.nextNow')) : null)),
+                  ? React.createElement('span', { className: 'dsh-task-launcher-note' }, t('menu.next', { time: next.text }))
+                  : (next.due ? React.createElement('span', { className: 'dsh-task-launcher-note' }, t('menu.nextNow')) : null)),
             })
           }
         } else {
           // 内置兜底项：**这是兜底，正常应走定时任务**（用户把「未缴费清单」建成定时任务后，
           // 定时任务组里就有同名条目；那时这一组会被整组隐藏，不会重复）。
-          items.push({ type: 'label', id: 'dsh-jiaofei-ledger:group-builtin', text: t('menu.group.builtin') })
+          items.push({ type: 'label', id: 'dsh-task-launcher:group-builtin', text: t('menu.group.builtin') })
           items.push({
             id: BUILTIN_ID,
-            label: React.createElement('span', { className: 'dsh-jiaofei-ledger-item' },
-              React.createElement('span', { className: 'dsh-jiaofei-ledger-dot is-outline', 'aria-hidden': 'true' }),
-              React.createElement('span', { className: 'dsh-jiaofei-ledger-item-title' }, taskLabel(builtinTask()))),
+            label: React.createElement('span', { className: 'dsh-task-launcher-item' },
+              React.createElement('span', { className: 'dsh-task-launcher-dot is-outline', 'aria-hidden': 'true' }),
+              React.createElement('span', { className: 'dsh-task-launcher-item-title' }, taskLabel(builtinTask()))),
           })
         }
 
         // 读取状态行（加载中 / 空 / 失败）——用 `children` 行（不可选）放在最后，
         // 这样它既在菜单键盘走法里可见，又不会被当成"任务"点掉。
-        const stateRow = (text) => React.createElement('div', { className: 'dsh-jiaofei-ledger-note dsh-jiaofei-ledger-state', key: 'state' }, text)
+        const stateRow = (text) => React.createElement('div', { className: 'dsh-task-launcher-note dsh-task-launcher-state', key: 'state' }, text)
 
         const anchor = React.createElement('button', {
           type: 'button',
-          className: (variant === 'tab' ? 'dsh-jiaofei-ledger-tab' : 'dsh-jiaofei-ledger-btn') + (outcome === 'sent' ? ' is-ok' : (outcome === 'failed' ? ' is-err' : '')),
+          className: (variant === 'tab' ? 'dsh-task-launcher-tab' : 'dsh-task-launcher-btn') + (outcome === 'sent' ? ' is-ok' : (outcome === 'failed' ? ' is-err' : '')),
           onClick: toggleOpen,
           disabled: sending,
           'aria-label': variant === 'tab' ? t('tab.aria') : t('action.aria'),
@@ -572,7 +572,7 @@ window.__ModuleLoader__.load({
             ? React.createElement(checklistIcon, { size: 16 })
             : null,
           typeof host.label === 'function' ? host.label(t) : (host.label !== undefined ? host.label : t(variant === 'tab' ? 'tab.label' : 'action.label')),
-          variant === 'tab' ? null : React.createElement('span', { className: 'dsh-jiaofei-ledger-caret', 'aria-hidden': 'true' }, '▾'))
+          variant === 'tab' ? null : React.createElement('span', { className: 'dsh-task-launcher-caret', 'aria-hidden': 'true' }, '▾'))
 
         const menu = taskMenu
           ? React.createElement(taskMenu, {
@@ -600,7 +600,7 @@ window.__ModuleLoader__.load({
 
         // ---- 确认框（复用 primitives.Modal + footer 确认行）----
         const sessionTitle = typeof host.getSessionTitle === 'function' ? host.getSessionTitle() : undefined
-        const confirmFooter = React.createElement('div', { className: 'dsh-jiaofei-ledger-confirm-actions' },
+        const confirmFooter = React.createElement('div', { className: 'dsh-task-launcher-confirm-actions' },
           React.createElement(button, {
             variant: 'outline',
             disabled: sending,
@@ -617,10 +617,10 @@ window.__ModuleLoader__.load({
 
         const confirmBody = []
         if (pending) {
-          confirmBody.push(React.createElement('p', { key: 'title', className: 'dsh-jiaofei-ledger-confirm-title' }, taskLabel(pending)))
-          confirmBody.push(React.createElement('p', { key: 'body', className: 'dsh-jiaofei-ledger-note' }, t('confirm.body')))
+          confirmBody.push(React.createElement('p', { key: 'title', className: 'dsh-task-launcher-confirm-title' }, taskLabel(pending)))
+          confirmBody.push(React.createElement('p', { key: 'body', className: 'dsh-task-launcher-note' }, t('confirm.body')))
           if (typeof sessionTitle === 'string' && sessionTitle !== '') {
-            confirmBody.push(React.createElement('p', { key: 'session', className: 'dsh-jiaofei-ledger-note' }, t('confirm.session', { title: sessionTitle })))
+            confirmBody.push(React.createElement('p', { key: 'session', className: 'dsh-task-launcher-note' }, t('confirm.session', { title: sessionTitle })))
           }
         }
 
@@ -636,11 +636,11 @@ window.__ModuleLoader__.load({
 
         const hint = outcome === 'idle'
           ? null
-          : React.createElement('span', { className: 'dsh-jiaofei-ledger-hint' + (outcome === 'failed' ? ' is-err' : '') },
+          : React.createElement('span', { className: 'dsh-task-launcher-hint' + (outcome === 'failed' ? ' is-err' : '') },
               detail !== '' ? detail : (outcome === 'sent' ? t('state.sent') : t('state.sending')))
 
         return React.createElement('span', {
-          className: 'dsh-jiaofei-ledger' + (variant === 'tab' ? ' is-tab' : ''),
+          className: 'dsh-task-launcher' + (variant === 'tab' ? ' is-tab' : ''),
         }, menu, hint, dialog)
       }
       return TaskMenu
@@ -742,7 +742,7 @@ window.__ModuleLoader__.load({
         sessionId: '有（标准 session 席位）',
         register: (ctx, View) => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
           name: 'sidebar.right.pane.tab',
-          key: 'dsh-jiaofei-ledger:task-tab',
+          key: 'dsh-task-launcher:task-tab',
           locale: NS,
         }, View)),
       },
@@ -753,7 +753,7 @@ window.__ModuleLoader__.load({
         sessionId: '无（root 作用域，需另取当前会话）',
         register: (ctx, View) => ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
           name: 'sidebar.footer.action',
-          id: 'dsh-jiaofei-ledger:task-menu',
+          id: 'dsh-task-launcher:task-menu',
           order: 40,
           locale: NS,
         }, View)),
@@ -764,7 +764,7 @@ window.__ModuleLoader__.load({
         sessionId: '有（标准 session 席位）',
         register: (ctx, View) => ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
           name: 'conversation.input.dock',
-          id: 'dsh-jiaofei-ledger:task-menu',
+          id: 'dsh-task-launcher:task-menu',
           order: 60,
           locale: NS,
         }, View)),
@@ -775,7 +775,7 @@ window.__ModuleLoader__.load({
         sessionId: '有（标准 session 席位）',
         register: (ctx, View) => ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
           name: 'conversation.composer.dock',
-          id: 'dsh-jiaofei-ledger:task-menu',
+          id: 'dsh-task-launcher:task-menu',
           order: 60,
           locale: NS,
         }, View)),
@@ -788,7 +788,7 @@ window.__ModuleLoader__.load({
         sessionId: '有，但是"被悬停那一行"的会话，不是当前会话',
         register: (ctx, View) => ctx.slots.inject('sidebar.session.row.hover', () => ctx.slots.register({
           name: 'sidebar.session.row.hover',
-          id: 'dsh-jiaofei-ledger:task-menu',
+          id: 'dsh-task-launcher:task-menu',
           order: 60,
           locale: NS,
         }, View)),
@@ -1042,7 +1042,7 @@ window.__ModuleLoader__.load({
       for (const slotId of SLOT_BINDINGS) {
         if (slotId === 'conversationTabs') {
           try {
-            ctx.effect(() => conversationTabMount(ctx), 'dsh-jiaofei-ledger: conversation tabs')
+            ctx.effect(() => conversationTabMount(ctx), 'dsh-task-launcher: conversation tabs')
           } catch (error) {
             warn('conversation tabs mount failed:', error)
           }
@@ -1067,8 +1067,8 @@ window.__ModuleLoader__.load({
     /** 样式注入（失败不影响登记；插件停用即移除）。 */
     const installStyle = () => {
       const style = document.createElement('style')
-      style.dataset.plugin = 'dsh-jiaofei-ledger'
-      style.dataset.pluginCss = 'dsh-jiaofei-ledger/task-menu'
+      style.dataset.plugin = 'dsh-task-launcher'
+      style.dataset.pluginCss = 'dsh-task-launcher/task-menu'
       style.textContent = CSS
       document.head.appendChild(style)
       return () => style.remove()
@@ -1080,7 +1080,7 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       // 样式与登记各自兜底：样式注入失败绝不能连累登记（否则界面只表现"没反应"，极难定位）。
       try {
-        ctx.effect(() => installStyle(), 'dsh-jiaofei-ledger: css')
+        ctx.effect(() => installStyle(), 'dsh-task-launcher: css')
       } catch (error) {
         warn('css failed:', error)
       }
@@ -1089,7 +1089,7 @@ window.__ModuleLoader__.load({
       // 单独兜底：字典失败也继续登记（组件的 makeTranslator 会退回本地 zh 字典）。
       let localeReady = false
       try {
-        ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-jiaofei-ledger: dictionaries')
+        ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-task-launcher: dictionaries')
         localeReady = true
       } catch (error) {
         warn('dictionaries failed:', error)
@@ -1101,7 +1101,7 @@ window.__ModuleLoader__.load({
     }
 
     const warn = (...args) => {
-      try { console.warn('[dsh-jiaofei-ledger]', ...args) } catch (error) { /* 忽略 */ }
+      try { console.warn('[dsh-task-launcher]', ...args) } catch (error) { /* 忽略 */ }
     }
 
     exports.apply = apply
