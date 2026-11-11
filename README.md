@@ -9,6 +9,7 @@
 - 以后用户新建任何启用任务，都会自动出现在下拉里，**零代码改动**。
 - 下拉里另有一条**内置兜底项**「未缴费清单（缴费台账）」走原来的硬编码文本，
   作为读不到定时任务时的兜底（两组之间有小标题分隔）。
+- **待确认清单**：下拉里另有一条内置项，读工作区的 `dsh-confirm-board.json`，逐条勾「执行／暂缓／不做」，勾完一次性投进当前会话（详见下文）。
 - **纯客户端插件**：宿主半边（`lib/index.js`）故意是空的，不注册路由、不读文件、不落盘。
 - **不改核心**：DSH 自带包一个字节都没动；**不碰台账文件**。
 
@@ -68,6 +69,15 @@ ctx.remote.session.prompt({
 ```
 
 返回是 **Result 信封** `{ ok: true, value: { accepted: true } }` / `{ ok: false, error }` —— 按 `.ok` 判。
+
+## 待确认清单（确认单）
+
+下拉里另有一条 **「待确认清单 · N 项」**：读工作区里的 `dsh-confirm-board.json`，把 agent 列出的待办逐条摆出来让人勾，勾完一次性投进当前会话。
+
+- **读法**：`GET /api/dsh-uploads/workspace-file?path=dsh-confirm-board.json`（dsh-long-plugins 的只读接口，按"工作区里同名唯一文件"兜底定位，插件不需要知道绝对路径）；面板开着时**每 10 秒＋切回窗口自动重读**，agent 写回文件后不用关掉再开——文件指纹没变则保留你已经点的选择。
+- **每行三档**：执行 / 暂缓 / 不做。确认后拼成一条人类可读的清单（不是 JSON）投进当前会话，agent 照单执行。
+- **两种终态**：agent 执行完在文件里把该条 `decision` 写成 `done`（或 `archived`）⇒ 这些条目**不再出现在列表里**，只在底部留一个「已完成 N · 已归档 M」的计数。
+- **文件形状**：`{ schema, batch: { id, label }, items: [{ id, title, hint, risk, decision }] }`；`decision` 取 `run|defer|skip|done|archived`（不认识的值一律按"未选"处理，不会自动执行）。
 
 ## 安装
 

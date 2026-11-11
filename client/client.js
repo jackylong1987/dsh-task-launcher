@@ -74,6 +74,25 @@ window.__ModuleLoader__.load({
     const SESSION_ATTR = 'data-conversation-session'
 
     /**
+     * 待确认清单（确认单）的数据文件名 —— 落在**工作区**里，由主会话（agent）维护，本插件**只读**。
+     *
+     * 为什么走「工作区文件」而不是插件自己的路由/落盘：
+     *   · 本插件是纯客户端的（宿主半边故意为空），加路由＝改服务端 ⇒ 要重启 dsh 才生效；
+     *   · 清单的产生方是 agent（按交接单写），勾选结果也由 agent 执行后回写 ⇒ 文件是唯一真源，
+     *     插件只负责"读出来给人选"，选完把选择当成一条消息投进会话。
+     * 读取复用 dsh-long-plugins 的既有只读接口 GET /api/dsh-uploads/workspace-file，
+     * 不新开任何服务端能力、不碰核心。
+     */
+    const BOARD_FILE = 'dsh-confirm-board.json'
+    /** 确认单条目在下拉里的固定 id（与定时任务的 uuid 不会撞）。 */
+    const BOARD_ITEM_ID = 'dsh-task-launcher:confirm-board'
+    /** 三档选择：执行 / 暂缓 / 不做；'none' ＝ 还没定。 */
+    const CHOICE_RUN = 'run'
+    const CHOICE_DEFER = 'defer'
+    const CHOICE_SKIP = 'skip'
+    const CHOICE_NONE = 'none'
+
+    /**
      * 台账在**当前工作区**里的相对路径（交付包/仓库里只留相对路径与说明，
      * 不写死本机绝对路径——绝对路径会把机器与客户标识带出去）。
      * 台账不在当前工作区时，由模型按这个名字去找、找不到就问用户要路径。
@@ -115,6 +134,28 @@ window.__ModuleLoader__.load({
       'confirm.close': '取消并关闭',
       'tab.label': '任务',
       'tab.aria': '任务：选一条自动化任务，确认后在当前会话执行',
+      // ── 待确认清单（确认单）────────────────────────────────
+      'board.group': '待确认清单',
+      'board.item': '待确认清单 · {count} 项',
+      'board.itemPending': '{count} 项待定',
+      'board.loading': '读取确认单…',
+      'board.error': '确认单读取失败：{code}',
+      'board.empty': '还没有确认单（agent 写 {file} 后出现在这里）',
+      'board.title': '待确认清单',
+      'board.subtitle': '本批 {count} 项 · {batch}',
+      'board.hint': '「执行」这次做　「暂缓」下次再提　「不做」归档',
+      'board.run': '执行',
+      'board.defer': '暂缓',
+      'board.skip': '不做',
+      'board.selectAll': '全选',
+      'board.clearAll': '全不选',
+      'board.summary': '执行 {run} · 暂缓 {defer} · 不做 {skip} · 待定 {none}',
+      'board.summaryDone': '已完成 {done} · 已归档 {archived}',
+      'board.nothingOpen': '本批没有待决条目，结案记录见下。',
+      'board.cancel': '取消',
+      'board.confirm': '确认并执行（{count}）',
+      'board.nothing': '一项都没标「执行」',
+      'board.sending': '投递中…',
     }
 
     /** 英文文案（UI 语言切到 en 时用）。 */
@@ -143,6 +184,28 @@ window.__ModuleLoader__.load({
       'confirm.close': 'Cancel and close',
       'tab.label': 'Tasks',
       'tab.aria': 'Tasks: pick an automation task and run it in this session after confirming',
+      // ── confirm board ─────────────────────────────────────
+      'board.group': 'Pending confirmations',
+      'board.item': 'Pending confirmations · {count}',
+      'board.itemPending': '{count} undecided',
+      'board.loading': 'Loading…',
+      'board.error': 'Could not load: {code}',
+      'board.empty': 'No confirmation board yet (agent writes {file})',
+      'board.title': 'Pending confirmations',
+      'board.subtitle': '{count} items · {batch}',
+      'board.hint': 'Run = do it now · Defer = raise again next time · Skip = archive',
+      'board.run': 'Run',
+      'board.defer': 'Defer',
+      'board.skip': 'Skip',
+      'board.selectAll': 'All run',
+      'board.clearAll': 'Clear',
+      'board.summary': 'Run {run} · Defer {defer} · Skip {skip} · Undecided {none}',
+      'board.summaryDone': 'Done {done} · Archived {archived}',
+      'board.nothingOpen': 'Nothing left to decide in this batch; closed records below.',
+      'board.cancel': 'Cancel',
+      'board.confirm': 'Confirm and run ({count})',
+      'board.nothing': 'Nothing marked Run',
+      'board.sending': 'Posting…',
     }
 
     /** 样式。用核心的设计令牌，跟宿主其它头部控件同一个观感（下拉卡片本身由 primitives 画）。 */
@@ -184,6 +247,32 @@ window.__ModuleLoader__.load({
 .dsh-task-launcher-state{padding:4px 8px}
 .dsh-task-launcher-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
 .dsh-task-launcher-confirm-title{margin:0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary)}
+/* ── 确认单（待确认清单）────────────────────────────────── */
+.dsh-board-rows{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto;margin-top:4px}
+.dsh-board-row{display:flex;align-items:flex-start;gap:10px;padding:8px 2px;border-bottom:.5px solid var(--dsw-alias-border-l3);min-width:0}
+.dsh-board-row:last-child{border-bottom:none}
+.dsh-board-rowText{flex:1;min-width:0}
+.dsh-board-rowTitle{font-size:13px;line-height:19px;color:var(--dsw-alias-label-primary);font-weight:500}
+.dsh-board-rowHint{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);margin-top:1px}
+.dsh-board-rowRisk{font-size:11px;line-height:16px;color:var(--dsw-alias-label-quaternary);margin-top:1px}
+.dsh-board-row.is-skip .dsh-board-rowTitle,.dsh-board-row.is-defer .dsh-board-rowTitle{color:var(--dsw-alias-label-tertiary);font-weight:400}
+.dsh-board-rowActions{flex:none;display:flex;gap:4px}
+.dsh-board-pill{font:inherit;font-size:11px;line-height:16px;min-height:24px;padding:3px 8px;white-space:nowrap;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-tertiary);cursor:pointer}
+.dsh-board-pill:hover:not(:disabled),.dsh-board-pill:focus-visible{background:var(--dsw-alias-fill-l1);color:var(--dsw-alias-label-secondary)}
+.dsh-board-pill:disabled{cursor:default;opacity:.55}
+.dsh-board-pill.is-run.is-on{background:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary);color:#fff}
+.dsh-board-pill.is-defer.is-on{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-label,var(--dsw-alias-state-warn-primary))}
+.dsh-board-pill.is-skip.is-on{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
+.dsh-board-summary{margin-right:auto;font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}
+/* footer：上行汇总、下行按钮；按钮固定宽度 + nowrap，绝不换行/压缩。 */
+.dsh-board-footer{display:flex;flex-direction:column;gap:8px;width:100%}
+.dsh-board-footerLine{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dsh-board-footerActions{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:nowrap}
+.dsh-board-btn{font:inherit;font-size:12px;line-height:18px;min-height:30px;padding:5px 14px;border-radius:var(--dsw-radius-md);border:.5px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;flex:none;min-width:64px}
+.dsh-board-btn:hover:not(:disabled),.dsh-board-btn:focus-visible{background:var(--dsw-alias-fill-l1)}
+.dsh-board-btn:disabled{cursor:default;opacity:.5}
+.dsh-board-btn.is-primary{background:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary);color:#fff;font-weight:500;min-width:132px}
+.dsh-board-btn.is-primary:hover:not(:disabled){filter:brightness(1.06);background:var(--dsw-alias-state-business-primary)}
 `
 
     /**
@@ -301,6 +390,135 @@ window.__ModuleLoader__.load({
         .map(taskEntryOf)
     }
 
+    //#region 待确认清单（确认单）：读文件 → 归一化 → 选择 → 投递文本
+    /**
+     * 终态判定：`done`／`archived` 是**已结案**，只读展示、永不再参与选择。
+     * 为什么必须单独认：`normalizeChoice` 对认不出的值一律回 `none`，于是 agent 标了
+     * `done`/`archived` 的条目会退回「待定」，每批都得把条目搬出 `items` 才能让界面干净。
+     * @param value - 文件里的 `decision` 原文。
+     * @returns {'done'|'archived'|'open'}
+     */
+    const itemState = (value) => {
+      const text = typeof value === 'string' ? value.trim().toLowerCase() : ''
+      if (text === 'done' || text === 'completed') return 'done'
+      if (text === 'archived') return 'archived'
+      return 'open'
+    }
+
+    /**
+     * 把确认单文件（`{ schema, batch, items[] }`）归一化成视图层形状。
+     * 容错口径：**坏条目直接丢**（宁可少显示，也不显示一条点不动的空行）；整份坏 ⇒ 空清单 + ok:false。
+     * @param raw - 文件原始文本（JSON 字符串）。
+     * @returns {{ ok: boolean, error?: string, batch: string, items: Array }}
+     */
+    const parseBoard = (raw) => {
+      const empty = { ok: false, error: 'empty', batch: '', items: [] }
+      if (typeof raw !== 'string' || raw.trim() === '') return empty
+      let data
+      try {
+        data = JSON.parse(raw)
+      } catch (error) {
+        return { ok: false, error: 'bad-json', batch: '', items: [] }
+      }
+      if (data === null || typeof data !== 'object' || !Array.isArray(data.items)) {
+        return { ok: false, error: 'bad-shape', batch: '', items: [] }
+      }
+      const batch = data.batch && typeof data.batch === 'object' && typeof data.batch.label === 'string'
+        ? data.batch.label
+        : ''
+      const items = []
+      for (const item of data.items) {
+        if (item === null || typeof item !== 'object') continue
+        const id = typeof item.id === 'string' ? item.id.trim() : ''
+        const title = typeof item.title === 'string' ? item.title.trim() : ''
+        if (id === '' || title === '') continue
+        items.push({
+          id,
+          title,
+          hint: typeof item.hint === 'string' ? item.hint : '',
+          risk: typeof item.risk === 'string' ? item.risk : '',
+          decision: normalizeChoice(item.decision),
+          state: itemState(item.decision),
+        })
+      }
+      return { ok: true, error: '', batch, items }
+    }
+
+    /**
+     * 把任意值收成四档之一；认不出的一律当 `none`（**绝不默认执行**）。
+     * @param value - 待收的值。
+     * @returns {'run'|'defer'|'skip'|'none'}
+     */
+    const normalizeChoice = (value) => {
+      const text = typeof value === 'string' ? value.trim().toLowerCase() : ''
+      if (text === CHOICE_RUN) return CHOICE_RUN
+      if (text === CHOICE_DEFER) return CHOICE_DEFER
+      if (text === CHOICE_SKIP) return CHOICE_SKIP
+      return CHOICE_NONE
+    }
+
+    /**
+     * 统计各类计数（底部汇总与按钮括号都用它）。
+     * @param items - 视图层条目。
+     * @param overrides - 本轮点改后的选择（`{ [id]: choice }`）。
+     * @returns {{ run: number, defer: number, skip: number, none: number, total: number, done: number, archived: number }}
+     */
+    const boardCounts = (items, overrides) => {
+      const picked = overrides && typeof overrides === 'object' ? overrides : {}
+      const counts = { run: 0, defer: 0, skip: 0, none: 0, total: 0, done: 0, archived: 0 }
+      for (const item of Array.isArray(items) ? items : []) {
+        if (item && (item.state === 'done' || item.state === 'archived')) {
+          counts[item.state] += 1
+          continue
+        }
+        const choice = normalizeChoice(picked[item.id] !== undefined ? picked[item.id] : item.decision)
+        counts[choice] += 1
+        counts.total += 1
+      }
+      return counts
+    }
+
+    /**
+     * 把本轮选择拼成**要投进会话的那条消息**（agent 照着执行）。
+     * 刻意写成人类可读的清单而不是 JSON：agent 读得懂，用户事后翻聊天也看得懂。
+     * @param items - 视图层条目。
+     * @param overrides - 本轮选择。
+     * @param options - `{ batch }`。
+     * @returns {string} 投递文本；没有任何「执行」时返回空串（调用方据此拦下）。
+     */
+    const boardPrompt = (items, overrides, options) => {
+      const picked = overrides && typeof overrides === 'object' ? overrides : {}
+      const opts = options && typeof options === 'object' ? options : {}
+      const pick = (want) => (Array.isArray(items) ? items : []).filter((item) => {
+        if (item && (item.state === 'done' || item.state === 'archived')) return false
+        const choice = normalizeChoice(picked[item.id] !== undefined ? picked[item.id] : item.decision)
+        return choice === want
+      })
+      const run = pick(CHOICE_RUN)
+      if (run.length === 0) return ''
+      const defer = pick(CHOICE_DEFER)
+      const skip = pick(CHOICE_SKIP)
+      const lines = []
+      lines.push(`【待确认清单】按我在确认单上的选择执行（${opts.batch ? opts.batch + ' · ' : ''}执行 ${run.length} 项）：`)
+      lines.push('')
+      lines.push('要执行的：')
+      run.forEach((item, index) => lines.push(`${index + 1}. ${item.title}（${item.id}）`))
+      if (defer.length > 0) {
+        lines.push('')
+        lines.push('暂缓（本次不做，下次清单开头再提）：')
+        defer.forEach((item) => lines.push(`- ${item.title}（${item.id}）`))
+      }
+      if (skip.length > 0) {
+        lines.push('')
+        lines.push('不做（归档，以后不再出现）：')
+        skip.forEach((item) => lines.push(`- ${item.title}（${item.id}）`))
+      }
+      lines.push('')
+      lines.push(`执行完请把结果写回 ${BOARD_FILE}：执行过的标 done、暂缓的留到下批、不做的标 archived。`)
+      return lines.join('\n')
+    }
+    //#endregion
+
     /**
      * 把 `scheduledAt`（RFC 3339 UTC）排成本地可读的"下次"。
      * 纯函数，便于离线单测；坏值/缺值一律返回空串（不显示这一行）。
@@ -371,10 +589,21 @@ window.__ModuleLoader__.load({
         /** 'idle' | 'sent' | 'failed' */
         const [outcome, setOutcome] = React.useState('idle')
         const [detail, setDetail] = React.useState('')
+        /** 确认单：'idle' | 'loading' | 'ready' | 'error'；items 是归一化后的条目。 */
+        const [boardPhase, setBoardPhase] = React.useState('idle')
+        const [boardItems, setBoardItems] = React.useState([])
+        const [boardBatch, setBoardBatch] = React.useState('')
+        const [boardError, setBoardError] = React.useState('')
+        /** 确认单弹框是否打开。 */
+        const [boardOpen, setBoardOpen] = React.useState(false)
+        /** 本轮改动：`{ [id]: 'run'|'defer'|'skip'|'none' }`；没点过的条目用文件里的 decision。 */
+        const [boardPick, setBoardPick] = React.useState({})
+        const [boardSending, setBoardSending] = React.useState(false)
 
         const aliveRef = React.useRef(true)
         const timerRef = React.useRef(0)
         const dirtyRef = React.useRef(true)
+        const boardSigRef = React.useRef('') // 上次读到的确认单指纹：没变就不清点选
 
         React.useEffect(() => {
           aliveRef.current = true
@@ -457,6 +686,134 @@ window.__ModuleLoader__.load({
           }
           setOpen(true)
           if (dirtyRef.current || phase === 'idle' || phase === 'error') loadTasks()
+          // 确认单与任务一起读：它可能在会话进行中被 agent 改过（标了 done/archived）⇒ 每次都重读。
+          loadBoard()
+        }
+
+        /**
+         * 读一次确认单（只读文件；失败只影响这一组）。
+         * `silent`＝定时/切回窗口时的重读：不闪"读取中"，且**文件内容没变就保留点选**
+         * （否则每 10 秒把用户刚点的选择清空）。
+         * @param options - `{ silent?: boolean }`
+         */
+        const loadBoard = (options) => {
+          const opts = options || {}
+          if (typeof host.loadBoard !== 'function') {
+            setBoardPhase('idle')
+            return
+          }
+          if (!opts.silent) setBoardPhase('loading')
+          setBoardError('')
+          Promise.resolve()
+            .then(() => host.loadBoard())
+            .then((snapshot) => {
+              if (!aliveRef.current) return
+              const items = snapshot && Array.isArray(snapshot.items) ? snapshot.items : []
+              const sig = items.map((one) => one.id + ':' + (one.state === 'done' || one.state === 'archived' ? one.state : one.decision)).join('|')
+              const unchanged = sig !== '' && sig === boardSigRef.current
+              boardSigRef.current = sig
+              setBoardItems(items)
+              setBoardBatch(snapshot && typeof snapshot.batch === 'string' ? snapshot.batch : '')
+              if (snapshot && snapshot.ok) {
+                setBoardPhase(items.length === 0 ? 'empty' : 'ready')
+                // 文件变了 ⇒ 以文件为准，扔掉上一轮点选；没变（定时重读）⇒ 保留
+                if (!unchanged) setBoardPick({})
+                return
+              }
+              setBoardError(String((snapshot && snapshot.error) || 'unknown'))
+              setBoardPhase(items.length === 0 ? 'error' : 'ready')
+            })
+            .catch((error) => {
+              if (!aliveRef.current) return
+              setBoardItems([])
+              setBoardError(errorCode(error))
+              setBoardPhase('error')
+            })
+        }
+
+        // 面板开着时自动重读：agent 把结果写回文件后，不用关掉再开就能看到（10 秒一次＋切回窗口即读）。
+        React.useEffect(() => {
+          if (!boardOpen) return undefined
+          const reload = () => {
+            if (aliveRef.current && !boardSending) loadBoard({ silent: true })
+          }
+          const timer = setInterval(reload, 10000)
+          window.addEventListener('focus', reload)
+          return () => {
+            clearInterval(timer)
+            window.removeEventListener('focus', reload)
+          }
+        }, [boardOpen, boardSending])
+
+        /** 打开确认单弹框（先保证内容是最新的）。 */
+        const openBoard = () => {
+          setOpen(false)
+          setBoardOpen(true)
+          loadBoard()
+        }
+
+        /** 点某一档：再点一次同档＝撤销（回到 none）。 */
+        const pickChoice = (id, choice) => {
+          setBoardPick((current) => {
+            const next = { ...current }
+            const item = boardItems.find((one) => one.id === id)
+            const now = normalizeChoice(current[id] !== undefined ? current[id] : (item ? item.decision : CHOICE_NONE))
+            next[id] = now === choice ? CHOICE_NONE : choice
+            return next
+          })
+        }
+
+        /** 全选 / 全不选（只动「执行」，暂缓与归档由人逐条定，避免一键误设）。 */
+        const pickAll = (choice) => {
+          setBoardPick(() => {
+            const next = {}
+            for (const item of boardItems) {
+              if (item.state === 'done' || item.state === 'archived') continue
+              const now = normalizeChoice(item.decision)
+              next[item.id] = now === CHOICE_DEFER || now === CHOICE_SKIP ? now : choice
+            }
+            return next
+          })
+        }
+
+        /** 关闭确认单弹框（取消 ⇒ 什么都不做，点选保留在内存里但不投递）。 */
+        const closeBoard = () => {
+          if (boardSending) return
+          setBoardOpen(false)
+        }
+
+        /** 确认：把「执行」的条目拼成一条消息投进当前会话。 */
+        const confirmBoard = () => {
+          if (boardSending) return
+          const text = boardPrompt(boardItems, boardPick, { batch: boardBatch })
+          if (text === '') {
+            settle('failed', t('board.nothing'), FAIL_HINT_MS)
+            return
+          }
+          const sessionId = typeof host.getSessionId === 'function' ? host.getSessionId() : undefined
+          if (sessionId === undefined || sessionId === null || sessionId === '') {
+            settle('failed', t('state.failed', { code: 'no-session' }), FAIL_HINT_MS)
+            return
+          }
+          setBoardSending(true)
+          Promise.resolve()
+            .then(() => host.sendPrompt(sessionId, text))
+            .then((result) => {
+              if (!aliveRef.current) return
+              setBoardSending(false)
+              if (result && result.ok) {
+                setBoardOpen(false)
+                setBoardPick({})
+                settle('sent', t('state.sent'), OK_HINT_MS)
+                return
+              }
+              settle('failed', t('state.failed', { code: errorCode(result ? result.error : undefined) }), FAIL_HINT_MS)
+            })
+            .catch((error) => {
+              if (!aliveRef.current) return
+              setBoardSending(false)
+              settle('failed', t('state.failed', { code: errorCode(error) }), FAIL_HINT_MS)
+            })
         }
 
         /** 点某条任务 ⇒ **只打开确认框，不投递**（防误触）。 */
@@ -524,6 +881,22 @@ window.__ModuleLoader__.load({
         //   · 没拿到（读取失败 / 读到确为空 / 无会话）⇒ 才显示「内置」，此时它是唯一可用入口。
         const hasTasks = tasks.length > 0
         const items = []
+
+        // 确认单入口：**永远排在最上面**（它是"这一批要你拍板的事"，比定时任务更该先看到）。
+        // 三态：读到条目 ⇒ 可点；读到但为空 ⇒ 灰行提示；读失败 ⇒ 灰行报错（别把"读不到"说成"没有"）。
+        const boardCountsNow = boardCounts(boardItems, boardPick)
+        if (boardPhase === 'ready') {
+          items.push({ type: 'label', id: 'dsh-task-launcher:group-board', text: t('board.group') })
+          items.push({
+            id: BOARD_ITEM_ID,
+            label: React.createElement('span', { className: 'dsh-task-launcher-item' },
+              React.createElement('span', { className: 'dsh-task-launcher-dot', 'aria-hidden': 'true' }),
+              React.createElement('span', { className: 'dsh-task-launcher-item-title' }, t('board.item', { count: String(boardCountsNow.total) })),
+              boardCountsNow.run > 0
+                ? React.createElement('span', { className: 'dsh-task-launcher-note' }, t('board.itemPending', { count: String(boardCountsNow.run) }))
+                : null),
+          })
+        }
         if (hasTasks) {
           items.push({ type: 'label', id: 'dsh-task-launcher:group-schedule', text: t('menu.group.schedule') })
           for (const task of tasks) {
@@ -580,6 +953,10 @@ window.__ModuleLoader__.load({
               anchor,
               items,
               onSelect: (id) => {
+                if (id === BOARD_ITEM_ID) {
+                  openBoard()
+                  return
+                }
                 if (id === BUILTIN_ID) {
                   askRun(builtinTask())
                   return
@@ -639,9 +1016,100 @@ window.__ModuleLoader__.load({
           : React.createElement('span', { className: 'dsh-task-launcher-hint' + (outcome === 'failed' ? ' is-err' : '') },
               detail !== '' ? detail : (outcome === 'sent' ? t('state.sent') : t('state.sending')))
 
+        // ---- 确认单弹框（复用 primitives.Modal；每行三档：执行 / 暂缓 / 不做）----
+        const boardCountsNow2 = boardCounts(boardItems, boardPick)
+        const boardRowsOpen = boardItems.filter((item) => item.state !== 'done' && item.state !== 'archived')
+        const boardRow = (item) => {
+          const now = normalizeChoice(boardPick[item.id] !== undefined ? boardPick[item.id] : item.decision)
+          const pill = (label, choice, extra) => React.createElement(button, {
+            type: 'button',
+            key: choice,
+            className: 'dsh-board-pill is-' + choice + (now === choice ? ' is-on' : ''),
+            disabled: boardSending,
+            onClick: () => pickChoice(item.id, choice),
+            'aria-pressed': now === choice,
+          }, label)
+          return React.createElement('div', {
+            key: item.id,
+            className: 'dsh-board-row' + (now === CHOICE_SKIP ? ' is-skip' : (now === CHOICE_DEFER ? ' is-defer' : '')),
+          },
+            React.createElement('div', { className: 'dsh-board-rowText' },
+              React.createElement('div', { className: 'dsh-board-rowTitle' }, item.title),
+              item.hint !== '' ? React.createElement('div', { className: 'dsh-board-rowHint' }, item.hint) : null,
+              item.risk !== '' && item.risk !== '无'
+                ? React.createElement('div', { className: 'dsh-board-rowRisk' }, item.risk)
+                : null),
+            React.createElement('div', { className: 'dsh-board-rowActions' },
+              pill(t('board.run'), CHOICE_RUN),
+              pill(t('board.defer'), CHOICE_DEFER),
+              pill(t('board.skip'), CHOICE_SKIP)))
+        }
+
+        // 确认单自己的 footer：**两行**（上行汇总、下行按钮）。
+        // 为什么不用 primitives 的 Button：宿主的 Modal footer 是个横排 flex，把汇总文字和
+        // 两个按钮塞一行时，按钮会被挤到换行、`variant='primary'` 那种黑底大按钮也跟旁边
+        // 11px 的小药丸不搭（用户实测："确认执行和取消按钮没有做好"）。
+        // 这里改用**自绘 button + 固定宽度**，只用设计令牌取色，宽度不随文案抖动。
+        const boardFooter = React.createElement('div', { className: 'dsh-board-footer' },
+          React.createElement('div', { className: 'dsh-board-footerLine' },
+            t('board.summary', {
+              run: String(boardCountsNow2.run),
+              defer: String(boardCountsNow2.defer),
+              skip: String(boardCountsNow2.skip),
+              none: String(boardCountsNow2.none),
+            })),
+          (boardCountsNow2.done + boardCountsNow2.archived) > 0
+            ? React.createElement('div', { className: 'dsh-board-footerLine' },
+                t('board.summaryDone', {
+                  done: String(boardCountsNow2.done),
+                  archived: String(boardCountsNow2.archived),
+                }))
+            : null,
+          React.createElement('div', { className: 'dsh-board-footerActions' },
+            React.createElement('button', {
+              type: 'button',
+              className: 'dsh-board-btn is-ghost',
+              disabled: boardSending,
+              onClick: closeBoard,
+            }, t('board.cancel')),
+            React.createElement('button', {
+              type: 'button',
+              className: 'dsh-board-btn is-primary',
+              disabled: boardSending || boardCountsNow2.run === 0,
+              'data-modal-autofocus': boardCountsNow2.run > 0,
+              onClick: confirmBoard,
+            }, boardSending ? t('board.sending') : t('board.confirm', { count: String(boardCountsNow2.run) }))))
+
+        const boardBody = []
+        boardBody.push(React.createElement('p', { key: 'hint', className: 'dsh-task-launcher-note' }, t('board.hint')))
+        if (boardPhase === 'loading') {
+          boardBody.push(React.createElement('p', { key: 'state', className: 'dsh-task-launcher-note' }, t('board.loading')))
+        } else if (boardPhase === 'error') {
+          boardBody.push(React.createElement('p', { key: 'state', className: 'dsh-task-launcher-note' }, t('board.error', { code: boardError || 'unknown' })))
+        } else if (boardPhase === 'empty') {
+          boardBody.push(React.createElement('p', { key: 'state', className: 'dsh-task-launcher-note' }, t('board.empty', { file: BOARD_FILE })))
+        }
+        if (boardPhase === 'ready') {
+          // 已结案的条目**不显示**（用户 2026-11-11 定）：只在底部汇总里留个数字，列表只列还能选的。
+          boardBody.push(React.createElement('div', { key: 'rows', className: 'dsh-board-rows' }, boardRowsOpen.map(boardRow)))
+          if (boardRowsOpen.length === 0) {
+            boardBody.push(React.createElement('p', { key: 'nothing-open', className: 'dsh-task-launcher-note' }, t('board.nothingOpen')))
+          }
+        }
+
+        const boardDialog = modal
+          ? React.createElement(modal, {
+              open: boardOpen,
+              title: t('board.title'),
+              closeLabel: t('board.cancel'),
+              onClose: closeBoard,
+              footer: boardFooter,
+            }, boardBody)
+          : null
+
         return React.createElement('span', {
           className: 'dsh-task-launcher' + (variant === 'tab' ? ' is-tab' : ''),
-        }, menu, hint, dialog)
+        }, menu, hint, dialog, boardDialog)
       }
       return TaskMenu
     }
@@ -672,6 +1140,28 @@ window.__ModuleLoader__.load({
         getSessionTitle: opts.getSessionTitle,
         label: opts.label,
         t: opts.t,
+        /**
+         * 读待确认清单：走 dsh-long-plugins 的只读接口（`GET /api/dsh-uploads/workspace-file`），
+         * 只给**文件名**，服务端会按"工作区里唯一同名文件"兜底找到它 —— 这样插件既不用知道
+         * 工作区绝对路径、也不依赖会话 cwd（换目录/换机器都不会读错）。
+         * 返回 `{ ok, error, batch, items }`（形状见 `parseBoard`），失败不抛。
+         * @returns {Promise<{ ok: boolean, error: string, batch: string, items: Array }>}
+         */
+        loadBoard: () => {
+          const url = '/api/dsh-uploads/workspace-file?path=' + encodeURIComponent(BOARD_FILE)
+          return fetch(url, { cache: 'no-store', credentials: 'same-origin' })
+            .then((response) => {
+              if (!response.ok) throw new Error('HTTP ' + response.status)
+              return response.json()
+            })
+            .then((body) => {
+              if (body === null || typeof body !== 'object' || body.ok !== true) {
+                throw new Error(String((body && body.error) || 'no-content'))
+              }
+              return parseBoard(typeof body.content === 'string' ? body.content : '')
+            })
+            .catch((error) => ({ ok: false, error: errorCode(error), batch: '', items: [] }))
+        },
         /**
          * 读任务：**catalog（全局）＋ list（该会话）两个都读**，按 id 合并、去重、只留 `status==='active'`。
          *
@@ -1120,6 +1610,8 @@ window.__ModuleLoader__.load({
       sessionIdFromDom, placeTaskTabBeforeSessionFiles, syncTabGeometry,
       createTaskMenuView, createRemoteHost, bindSession, conversationTabMount,
       registerSlotBindings, CANDIDATE_SLOTS, SLOT_BINDINGS, zh, en, CSS,
+      BOARD_FILE, BOARD_ITEM_ID, CHOICE_RUN, CHOICE_DEFER, CHOICE_SKIP, CHOICE_NONE,
+      parseBoard, normalizeChoice, boardCounts, boardPrompt,
     }
     return module.exports
   },
