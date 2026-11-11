@@ -140,8 +140,8 @@ window.__ModuleLoader__.load({
       'tab.aria': '任务：选一条自动化任务，确认后在当前会话执行',
       // ── 待确认清单（确认单）────────────────────────────────
       'board.group': '待确认清单',
-      'board.item': '待确认清单 · {count} 项',
-      'board.itemPending': '{count} 项待定',
+      'board.item': '{count} 项',
+      'board.itemPending': '{count} 待定',
       'board.loading': '读取确认单…',
       'board.error': '确认单读取失败：{code}',
       'board.empty': '还没有确认单（agent 写 {file} 后出现在这里）',
@@ -212,7 +212,7 @@ window.__ModuleLoader__.load({
       'tab.aria': 'Tasks: pick an automation task and run it in this session after confirming',
       // ── confirm board ─────────────────────────────────────
       'board.group': 'Pending confirmations',
-      'board.item': 'Pending confirmations · {count}',
+      'board.item': '{count} items',
       'board.itemPending': '{count} undecided',
       'board.loading': 'Loading…',
       'board.error': 'Could not load: {code}',
