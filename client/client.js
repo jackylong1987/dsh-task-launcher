@@ -84,6 +84,10 @@ window.__ModuleLoader__.load({
      * 不新开任何服务端能力、不碰核心。
      */
     const BOARD_FILE = 'dsh-confirm-board.json'
+    /** 固定投递目标记在浏览器本地：存的是**会话标题**（不是 id），换会话改同名即可接上。 */
+    const BOARD_TARGET_KEY = 'dsh-task-launcher:board-target-title'
+    /** 「绑定固定会话时跳过二次确认」的开关（同样记在本地，默认关＝每次都要确认）。 */
+    const BOARD_SKIP_ASK_KEY = 'dsh-task-launcher:board-skip-ask'
     /** 确认单条目在下拉里的固定 id（与定时任务的 uuid 不会撞）。 */
     const BOARD_ITEM_ID = 'dsh-task-launcher:confirm-board'
     /** 三档选择：执行 / 暂缓 / 不做；'none' ＝ 还没定。 */
@@ -154,8 +158,30 @@ window.__ModuleLoader__.load({
       'board.nothingOpen': '本批没有待决条目，结案记录见下。',
       'board.cancel': '取消',
       'board.confirm': '确认并执行（{count}）',
-      'board.nothing': '一项都没标「执行」',
+      'board.nothing': '一项都没标（至少标一个「执行」「暂缓」或「不做」）',
+      'board.confirmSubmit': '提交选择',
+      'board.askBodyNoRun': '这次没有要执行的条目：只把你标的「暂缓 / 不做」写进确认单（不做的会被归档）。',
       'board.sending': '投递中…',
+      'board.askTitle': '在当前会话执行？',
+      'board.askBody': '这 {count} 条会立刻投进下面选定的会话（默认当前会话），不新建会话。',
+      'board.askSession': '当前会话：{title}',
+      'board.askHint': '开错会话的话，先取消，切到目标会话再点一次。',
+      'board.targetLabel': '投递到',
+      'board.targetCurrent': '当前会话（{title}）',
+      'board.targetNone': '不绑定：投给当前会话',
+      'board.sentTo': '已投递到「{title}」',
+      'board.targetHelp': '在框里打字就能筛会话名（也可以直接手打，例如「任务清单」）；选好失焦或回车即生效。以后换会话，把新会话改成同名就自动接上。',
+      'board.targetEmpty': '（没读到别的会话，点 ⟳ 刷新）',
+      'board.targetPlaceholder': '不绑定＝投当前会话；打字可筛会话名',
+      'board.targetCount': '共 {count} 个会话',
+      'board.targetHint': '按标题绑定：以后换会话，把新会话改成同名就自动接上（同名会话取最近更新的那个）。',
+      'board.targetMissing': '没找到标题为「{title}」的会话——是不是改名或归档了？',
+      'board.skipAsk': '绑定固定会话时不再弹二次确认',
+      'board.skipAskNeedTarget': '先在左边「投递到」选一个固定会话，这个开关才有意义',
+      'board.targetRefresh': '刷新会话列表',
+      'board.skipAskNow': '投递到：{title}',
+      'board.skipAskOff': '投递到：当前会话（始终要确认）',
+      'board.askRun': '就在这个会话执行',
     }
 
     /** 英文文案（UI 语言切到 en 时用）。 */
@@ -204,8 +230,30 @@ window.__ModuleLoader__.load({
       'board.nothingOpen': 'Nothing left to decide in this batch; closed records below.',
       'board.cancel': 'Cancel',
       'board.confirm': 'Confirm and run ({count})',
-      'board.nothing': 'Nothing marked Run',
+      'board.nothing': 'Nothing marked (pick at least one: Run / Defer / Skip)',
+      'board.confirmSubmit': 'Submit choices',
+      'board.askBodyNoRun': 'Nothing to run: this only records your Defer / Skip picks (skipped ones get archived).',
       'board.sending': 'Posting…',
+      'board.askTitle': 'Run in the current session?',
+      'board.askBody': 'These {count} items will be posted into the session chosen below (current by default); no new session is created.',
+      'board.askSession': 'Current session: {title}',
+      'board.askHint': 'If this is the wrong session, cancel, switch, then click again.',
+      'board.targetLabel': 'Deliver to',
+      'board.targetCurrent': 'Current session ({title})',
+      'board.targetNone': 'Not bound: deliver to the current session',
+      'board.sentTo': 'Delivered to "{title}"',
+      'board.targetHelp': 'Type to filter session titles (or type one directly, e.g. "任务清单"); blur or Enter to apply. Rename a new session to the same title later and it takes over.',
+      'board.targetEmpty': '(no sessions loaded — click ⟳)',
+      'board.targetPlaceholder': 'Empty = current session; type to filter',
+      'board.targetCount': '{count} sessions',
+      'board.targetHint': 'Bound by title: rename a new session to the same title and it takes over (latest match wins).',
+      'board.targetMissing': 'No session titled "{title}" — renamed or archived?',
+      'board.skipAsk': 'Skip the second confirmation when a fixed session is bound',
+      'board.skipAskNeedTarget': 'Pick a fixed session in Deliver to first',
+      'board.targetRefresh': 'Refresh session list',
+      'board.skipAskNow': 'Deliver to: {title}',
+      'board.skipAskOff': 'Deliver to: current session (always confirmed)',
+      'board.askRun': 'Run here',
     }
 
     /** 样式。用核心的设计令牌，跟宿主其它头部控件同一个观感（下拉卡片本身由 primitives 画）。 */
@@ -265,6 +313,15 @@ window.__ModuleLoader__.load({
 .dsh-board-pill.is-skip.is-on{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
 .dsh-board-summary{margin-right:auto;font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}
 /* footer：上行汇总、下行按钮；按钮固定宽度 + nowrap，绝不换行/压缩。 */
+.dsh-board-switch{display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);cursor:pointer;user-select:none}
+.dsh-board-switch input{width:13px;height:13px;margin:0;accent-color:var(--dsw-alias-state-business-primary)}
+.dsh-board-switch input:disabled{cursor:not-allowed;opacity:.5}
+.dsh-board-switch .is-muted{opacity:.55}
+.dsh-board-setting{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary)}
+.dsh-board-settingLabel{flex:none}
+.dsh-board-btn.is-mini{min-height:22px;padding:1px 8px;font-size:12px;line-height:16px}
+.dsh-board-target{display:flex;align-items:center;gap:8px;margin:10px 0 2px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.dsh-board-select{flex:1;min-width:0;max-width:100%;font:inherit;font-size:12px;padding:2px 6px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary)}
 .dsh-board-footer{display:flex;flex-direction:column;gap:8px;width:100%}
 .dsh-board-footerLine{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsh-board-footerActions{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:nowrap}
@@ -479,6 +536,22 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * 按**标题**挑投递目标：同名取最近更新的那个。
+     * 为什么按标题不按 id：用户换会话的习惯是把旧的「任务清单」归档、把新会话改名叫同名，
+     * 按 id 绑就断了；按标题绑，改名那一刻自动接上（旧的更新时间更早，自然排在后面）。
+     * @param rows - `[{ id, title, updatedAt }]`（`host.listSessions()` 的返回）。
+     * @param title - 绑定的会话标题；空串＝不绑（返回 null）。
+     * @returns 命中的那一行，或 `null`。
+     */
+    const pickTargetSession = (rows, title) => {
+      if (typeof title !== 'string' || title.trim() === '') return null
+      const hits = (Array.isArray(rows) ? rows : []).filter((row) => row && row.title === title)
+      if (hits.length === 0) return null
+      hits.sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0))
+      return hits[0]
+    }
+
+    /**
      * 把本轮选择拼成**要投进会话的那条消息**（agent 照着执行）。
      * 刻意写成人类可读的清单而不是 JSON：agent 读得懂，用户事后翻聊天也看得懂。
      * @param items - 视图层条目。
@@ -495,14 +568,19 @@ window.__ModuleLoader__.load({
         return choice === want
       })
       const run = pick(CHOICE_RUN)
-      if (run.length === 0) return ''
       const defer = pick(CHOICE_DEFER)
       const skip = pick(CHOICE_SKIP)
+      // 只有「暂缓 / 不做」也要能提交：否则点了「不做」却什么都发生不了（用户 2026-11-11 反馈）。
+      if (run.length === 0 && defer.length === 0 && skip.length === 0) return ''
       const lines = []
-      lines.push(`【待确认清单】按我在确认单上的选择执行（${opts.batch ? opts.batch + ' · ' : ''}执行 ${run.length} 项）：`)
-      lines.push('')
-      lines.push('要执行的：')
-      run.forEach((item, index) => lines.push(`${index + 1}. ${item.title}（${item.id}）`))
+      if (run.length > 0) {
+        lines.push(`【待确认清单】按我在确认单上的选择执行（${opts.batch ? opts.batch + ' · ' : ''}执行 ${run.length} 项）：`)
+        lines.push('')
+        lines.push('要执行的：')
+        run.forEach((item, index) => lines.push(`${index + 1}. ${item.title}（${item.id}）`))
+      } else {
+        lines.push(`【待确认清单】这次没有要执行的条目，只提交选择${opts.batch ? '（' + opts.batch + '）' : ''}：`)
+      }
       if (defer.length > 0) {
         lines.push('')
         lines.push('暂缓（本次不做，下次清单开头再提）：')
@@ -514,7 +592,9 @@ window.__ModuleLoader__.load({
         skip.forEach((item) => lines.push(`- ${item.title}（${item.id}）`))
       }
       lines.push('')
-      lines.push(`执行完请把结果写回 ${BOARD_FILE}：执行过的标 done、暂缓的留到下批、不做的标 archived。`)
+      lines.push(run.length > 0
+        ? `执行完请把结果写回 ${BOARD_FILE}：执行过的标 done、暂缓的留到下批、不做的标 archived。`
+        : `这次没有要执行的条目：请把标「不做」的直接改成 archived、暂缓的原样留到下批，结果写回 ${BOARD_FILE}。`)
       return lines.join('\n')
     }
     //#endregion
@@ -599,6 +679,60 @@ window.__ModuleLoader__.load({
         /** 本轮改动：`{ [id]: 'run'|'defer'|'skip'|'none' }`；没点过的条目用文件里的 decision。 */
         const [boardPick, setBoardPick] = React.useState({})
         const [boardSending, setBoardSending] = React.useState(false)
+        /** 第二道确认：点「确认并执行」先问「在当前会话执行？」，答了才真投递。 */
+        const [boardAsk, setBoardAsk] = React.useState(false)
+        /** 固定投递目标（**会话标题**；空串＝当前会话）。换会话时把新会话改成同名即可，不需要改绑定。 */
+        const [boardTarget, setBoardTarget] = React.useState(() => {
+          try { return localStorage.getItem(BOARD_TARGET_KEY) || '' } catch (error) { return '' }
+        })
+        /** 可选会话（标题 + id；打开确认框时现取）。 */
+        const [boardTargets, setBoardTargets] = React.useState([])
+        /** 「投递到」输入框里的草稿：可以手打/筛选，失焦或回车才落成绑定。 */
+        const [boardDraft, setBoardDraft] = React.useState(boardTarget)
+        /** 绑定固定会话时是否跳过第二道确认（默认关）。 */
+        const [boardSkipAsk, setBoardSkipAsk] = React.useState(() => {
+          try { return localStorage.getItem(BOARD_SKIP_ASK_KEY) === '1' } catch (error) { return false }
+        })
+
+        /**
+         * 重读可投递会话。会话目录是**异步**到达的：刚打开页面时可能还是空数组，
+         * 所以空列表时补读一次（1.5s 后），免得下拉里只有「不绑定」。
+         */
+        const refreshTargets = () => {
+          const read = () => (typeof host.listSessions === 'function' ? host.listSessions() : [])
+          const rows = read()
+          setBoardTargets(rows)
+          if (rows.length === 0) {
+            setTimeout(() => {
+              if (aliveRef.current) setBoardTargets(read())
+            }, 1500)
+          }
+        }
+
+        /** 把输入框里的草稿落成绑定（空串＝解除绑定）。 */
+        const commitTargetDraft = () => {
+          const next = String(boardDraft || '').trim()
+          setBoardDraft(next)
+          if (next !== boardTarget) rememberTarget(next)
+        }
+
+        /** 记住「跳过二次确认」开关。 */
+        const rememberSkipAsk = (next) => {
+          setBoardSkipAsk(next)
+          try {
+            if (next) localStorage.setItem(BOARD_SKIP_ASK_KEY, '1')
+            else localStorage.removeItem(BOARD_SKIP_ASK_KEY)
+          } catch (error) { /* 忽略：隐私模式写不进去，本次照样生效 */ }
+        }
+
+        /** 记住目标（空串＝清掉绑定，回到当前会话）。 */
+        const rememberTarget = (title) => {
+          setBoardTarget(title)
+          try {
+            if (title === '') localStorage.removeItem(BOARD_TARGET_KEY)
+            else localStorage.setItem(BOARD_TARGET_KEY, title)
+          } catch (error) { /* 忽略：隐私模式下写不进去，本次照样能投 */ }
+        }
 
         const aliveRef = React.useRef(true)
         const timerRef = React.useRef(0)
@@ -749,6 +883,8 @@ window.__ModuleLoader__.load({
         const openBoard = () => {
           setOpen(false)
           setBoardOpen(true)
+          // 先把可投递会话捞一遍：底部「投递到」下拉要能直接改，不必等二次确认框
+          refreshTargets()
           loadBoard()
         }
 
@@ -779,19 +915,55 @@ window.__ModuleLoader__.load({
         /** 关闭确认单弹框（取消 ⇒ 什么都不做，点选保留在内存里但不投递）。 */
         const closeBoard = () => {
           if (boardSending) return
+          setBoardAsk(false)
           setBoardOpen(false)
         }
 
-        /** 确认：把「执行」的条目拼成一条消息投进当前会话。 */
+        /**
+         * 第一步：先弹「在当前会话执行？」。
+         * 为什么要多这一道：清单直接投进**当前会话**，用户切到别的会话后随手点确认，
+         * 就把活派给了错的会话——这道框把会话名摆在眼前，答了才发。
+         */
+        const askBoardConfirm = () => {
+          if (boardSending) return
+          if (boardPrompt(boardItems, boardPick, { batch: boardBatch }) === '') {
+            settle('failed', t('board.nothing'), FAIL_HINT_MS)
+            return
+          }
+          // 绑了固定会话且开关打开 ⇒ 直接投（不再弹第二道框）；选「当前会话」时永远要确认。
+          if (boardTarget !== '' && boardSkipAsk) {
+            confirmBoard()
+            return
+          }
+          refreshTargets()
+          setBoardAsk(true)
+        }
+
+        /** 第二步：用户确认过会话，才把「执行」的条目拼成一条消息投进当前会话。 */
         const confirmBoard = () => {
           if (boardSending) return
           const text = boardPrompt(boardItems, boardPick, { batch: boardBatch })
           if (text === '') {
+            setBoardAsk(false)
             settle('failed', t('board.nothing'), FAIL_HINT_MS)
             return
           }
-          const sessionId = typeof host.getSessionId === 'function' ? host.getSessionId() : undefined
+          let sessionId = typeof host.getSessionId === 'function' ? host.getSessionId() : undefined
+          if (boardTarget !== '') {
+            // 按**标题**找目标：换会话后新会话改成同名，就自动接上（同名取最近更新的那个）。
+            const rows = typeof host.listSessions === 'function' ? host.listSessions() : []
+            const hit = pickTargetSession(rows, boardTarget)
+            if (!hit) {
+              // 找不到就给条退路：把确认框打开，让他改选目标（跳过确认时也要能自救）
+              refreshTargets()
+              setBoardAsk(true)
+              settle('failed', t('board.targetMissing', { title: boardTarget }), FAIL_HINT_MS)
+              return
+            }
+            sessionId = hit.id
+          }
           if (sessionId === undefined || sessionId === null || sessionId === '') {
+            setBoardAsk(false)
             settle('failed', t('state.failed', { code: 'no-session' }), FAIL_HINT_MS)
             return
           }
@@ -801,10 +973,15 @@ window.__ModuleLoader__.load({
             .then((result) => {
               if (!aliveRef.current) return
               setBoardSending(false)
+              setBoardAsk(false)
               if (result && result.ok) {
                 setBoardOpen(false)
                 setBoardPick({})
-                settle('sent', t('state.sent'), OK_HINT_MS)
+                // 回显投到哪儿：绑定会话时用标题，否则用当前会话标题（都没有就退回通用文案）
+                const where = boardTarget !== ''
+                  ? boardTarget
+                  : (typeof sessionTitle === 'string' && sessionTitle !== '' ? sessionTitle : '')
+                settle('sent', where === '' ? t('state.sent') : t('board.sentTo', { title: where }), OK_HINT_MS)
                 return
               }
               settle('failed', t('state.failed', { code: errorCode(result ? result.error : undefined) }), FAIL_HINT_MS)
@@ -812,6 +989,7 @@ window.__ModuleLoader__.load({
             .catch((error) => {
               if (!aliveRef.current) return
               setBoardSending(false)
+              setBoardAsk(false)
               settle('failed', t('state.failed', { code: errorCode(error) }), FAIL_HINT_MS)
             })
         }
@@ -1050,6 +1228,17 @@ window.__ModuleLoader__.load({
         // 两个按钮塞一行时，按钮会被挤到换行、`variant='primary'` 那种黑底大按钮也跟旁边
         // 11px 的小药丸不搭（用户实测："确认执行和取消按钮没有做好"）。
         // 这里改用**自绘 button + 固定宽度**，只用设计令牌取色，宽度不随文案抖动。
+        // 可投递的会话标题（去重，保持 listSessions 的"最近更新在前"顺序）；绑定值不在列表里也留一项。
+        const boardTitleSeen = new Set()
+        const boardOptionTitles = []
+        for (const row of boardTargets) {
+          if (row && typeof row.title === 'string' && row.title !== '' && !boardTitleSeen.has(row.title)) {
+            boardTitleSeen.add(row.title)
+            boardOptionTitles.push(row.title)
+          }
+        }
+        if (boardTarget !== '' && !boardTitleSeen.has(boardTarget)) boardOptionTitles.unshift(boardTarget)
+
         const boardFooter = React.createElement('div', { className: 'dsh-board-footer' },
           React.createElement('div', { className: 'dsh-board-footerLine' },
             t('board.summary', {
@@ -1065,6 +1254,41 @@ window.__ModuleLoader__.load({
                   archived: String(boardCountsNow2.archived),
                 }))
             : null,
+          React.createElement('div', { className: 'dsh-board-setting' },
+            React.createElement('span', { className: 'dsh-board-settingLabel' }, t('board.targetLabel')),
+            React.createElement('input', {
+              className: 'dsh-board-select',
+              type: 'text',
+              list: 'dsh-board-targets',
+              value: boardDraft,
+              placeholder: t('board.targetPlaceholder'),
+              disabled: boardSending,
+              onChange: (event) => setBoardDraft(event.target.value),
+              onBlur: commitTargetDraft,
+              onKeyDown: (event) => { if (event.key === 'Enter') commitTargetDraft() },
+            }),
+            React.createElement('datalist', { id: 'dsh-board-targets' },
+              boardOptionTitles.map((title) => React.createElement('option', { key: title, value: title }))),
+            React.createElement('button', {
+              type: 'button',
+              className: 'dsh-board-btn is-ghost is-mini',
+              disabled: boardSending,
+              title: t('board.targetRefresh'),
+              'aria-label': t('board.targetRefresh'),
+              onClick: refreshTargets,
+            }, '⟳')),
+          React.createElement('div', { className: 'dsh-board-setting' },
+            React.createElement('label', { className: 'dsh-board-switch' },
+              React.createElement('input', {
+                type: 'checkbox',
+                checked: boardSkipAsk,
+                disabled: boardSending || boardTarget === '',
+                title: boardTarget === '' ? t('board.skipAskNeedTarget') : undefined,
+                onChange: (event) => rememberSkipAsk(!!event.target.checked),
+              }),
+              React.createElement('span', { className: boardTarget === '' ? 'is-muted' : undefined },
+                t('board.skipAsk')))),
+          React.createElement('p', { className: 'dsh-task-launcher-note' }, t('board.targetHelp')),
           React.createElement('div', { className: 'dsh-board-footerActions' },
             React.createElement('button', {
               type: 'button',
@@ -1075,10 +1299,14 @@ window.__ModuleLoader__.load({
             React.createElement('button', {
               type: 'button',
               className: 'dsh-board-btn is-primary',
-              disabled: boardSending || boardCountsNow2.run === 0,
+              disabled: boardSending || (boardCountsNow2.run + boardCountsNow2.defer + boardCountsNow2.skip) === 0,
               'data-modal-autofocus': boardCountsNow2.run > 0,
-              onClick: confirmBoard,
-            }, boardSending ? t('board.sending') : t('board.confirm', { count: String(boardCountsNow2.run) }))))
+              onClick: askBoardConfirm,
+            }, boardSending
+              ? t('board.sending')
+              : (boardCountsNow2.run > 0
+                ? t('board.confirm', { count: String(boardCountsNow2.run) })
+                : t('board.confirmSubmit')))))
 
         const boardBody = []
         boardBody.push(React.createElement('p', { key: 'hint', className: 'dsh-task-launcher-note' }, t('board.hint')))
@@ -1099,7 +1327,8 @@ window.__ModuleLoader__.load({
 
         const boardDialog = modal
           ? React.createElement(modal, {
-              open: boardOpen,
+              // 第二道确认弹出时先收起本框，避免两个 Modal 叠着（取消后回到这里）
+              open: boardOpen && !boardAsk,
               title: t('board.title'),
               closeLabel: t('board.cancel'),
               onClose: closeBoard,
@@ -1107,9 +1336,67 @@ window.__ModuleLoader__.load({
             }, boardBody)
           : null
 
+
+        // 第二道确认：先把「投给谁」摆出来（默认当前会话；可绑一个固定标题，例如「任务清单」）。
+        const boardAskFooter = React.createElement('div', { className: 'dsh-board-footer' },
+          React.createElement('div', { className: 'dsh-board-footerActions' },
+            React.createElement('button', {
+              type: 'button',
+              className: 'dsh-board-btn is-ghost',
+              disabled: boardSending,
+              onClick: () => setBoardAsk(false),
+            }, t('board.cancel')),
+            React.createElement('button', {
+              type: 'button',
+              className: 'dsh-board-btn is-primary',
+              disabled: boardSending,
+              'data-modal-autofocus': true,
+              onClick: confirmBoard,
+            }, boardSending ? t('board.sending') : t('board.askRun'))))
+
+        const boardAskDialog = modal
+          ? React.createElement(modal, {
+              open: boardAsk,
+              title: t('board.askTitle'),
+              closeLabel: t('board.cancel'),
+              onClose: () => { if (!boardSending) setBoardAsk(false) },
+              footer: boardAskFooter,
+            }, [
+              React.createElement('p', { key: 'body', className: 'dsh-task-launcher-note' },
+                t(boardCountsNow2.run > 0 ? 'board.askBody' : 'board.askBodyNoRun', { count: String(boardCountsNow2.run) })),
+              React.createElement('div', { key: 'target', className: 'dsh-board-target' },
+                React.createElement('span', null, t('board.targetLabel')),
+                React.createElement('input', {
+                  className: 'dsh-board-select',
+                  type: 'text',
+                  list: 'dsh-board-targets-ask',
+                  value: boardDraft,
+                  placeholder: t('board.targetPlaceholder'),
+                  disabled: boardSending,
+                  onChange: (event) => setBoardDraft(event.target.value),
+                  onBlur: commitTargetDraft,
+                  onKeyDown: (event) => { if (event.key === 'Enter') commitTargetDraft() },
+                }),
+                React.createElement('datalist', { id: 'dsh-board-targets-ask' },
+                  boardOptionTitles.map((title) => React.createElement('option', { key: title, value: title })))),
+              React.createElement('p', { key: 'targetHint', className: 'dsh-task-launcher-note' }, t('board.targetHint')),
+              React.createElement('label', { key: 'skip', className: 'dsh-board-switch' },
+                React.createElement('input', {
+                  type: 'checkbox',
+                  checked: boardSkipAsk,
+                  disabled: boardSending || boardTarget === '',
+                  title: boardTarget === '' ? t('board.skipAskNeedTarget') : undefined,
+                  onChange: (event) => rememberSkipAsk(!!event.target.checked),
+                }),
+                React.createElement('span', { className: boardTarget === '' ? 'is-muted' : undefined },
+                  t('board.skipAsk'))),
+              React.createElement('p', { key: 'hint', className: 'dsh-task-launcher-note' }, t('board.askHint')),
+            ])
+          : null
+
         return React.createElement('span', {
           className: 'dsh-task-launcher' + (variant === 'tab' ? ' is-tab' : ''),
-        }, menu, hint, dialog, boardDialog)
+        }, menu, hint, dialog, boardDialog, boardAskDialog)
       }
       return TaskMenu
     }
@@ -1140,6 +1427,30 @@ window.__ModuleLoader__.load({
         getSessionTitle: opts.getSessionTitle,
         label: opts.label,
         t: opts.t,
+        /**
+         * 列可投递的会话（标题 + id，最近更新的在前，子会话不算）。
+         * 只读 `ctx.sessions.list` 的快照；拿不到就返回空数组（界面上就只剩「当前会话」）。
+         * @returns {Array<{id: string, title: string}>}
+         */
+        listSessions: () => {
+          try {
+            const store = ctx && ctx.sessions && ctx.sessions.list
+            const snap = store && typeof store.getSnapshot === 'function' ? store.getSnapshot() : null
+            if (!snap || !Array.isArray(snap.ids) || !snap.byId) return []
+            const rows = []
+            for (const id of snap.ids) {
+              const row = snap.byId[id]
+              if (!row || row.origin === 'subagent') continue
+              const title = String(row.displayTitle || row.title || id || '')
+              if (title === '') continue
+              rows.push({ id: String(id), title, updatedAt: Number(row.updatedAt || 0) })
+            }
+            rows.sort((left, right) => right.updatedAt - left.updatedAt)
+            return rows
+          } catch (error) {
+            return []
+          }
+        },
         /**
          * 读待确认清单：走 dsh-long-plugins 的只读接口（`GET /api/dsh-uploads/workspace-file`），
          * 只给**文件名**，服务端会按"工作区里唯一同名文件"兜底找到它 —— 这样插件既不用知道
@@ -1600,7 +1911,9 @@ window.__ModuleLoader__.load({
     //    （`ctx.remote.session.prompt` 的那半边）、`locale`（字典 + 渲染器的 `t` 席位）。
     //    漏了 ⇒ 静默不激活（界面表现＝"没这个菜单"）。`remote.schedule` 这个名字与
     //    `dsh-client-ui-schedule` 的 inject 列表同一口径（它也是 `remote` + `remote.schedule` 都列）。
-    exports.inject = ['slots', 'remote', 'remote.schedule', 'remote.session', 'locale']
+    // 注意：`sessions` 是**客户端服务名**（`ctx.sessions.list` 的会话目录），不是模块名。
+    // 少了它 ⇒ `ctx.sessions` 为 undefined，「投递到」下拉里永远只剩「不绑定」。
+    exports.inject = ['slots', 'sessions', 'remote', 'remote.schedule', 'remote.session', 'locale']
     // 离线用例的纯函数钩子（宿主不会用到）。
     exports.__test__ = {
       PROMPT_TEXT, NS, MODE, FALLBACK_TIME_ZONE, BUILTIN_ID, ACTIVE,
@@ -1611,7 +1924,7 @@ window.__ModuleLoader__.load({
       createTaskMenuView, createRemoteHost, bindSession, conversationTabMount,
       registerSlotBindings, CANDIDATE_SLOTS, SLOT_BINDINGS, zh, en, CSS,
       BOARD_FILE, BOARD_ITEM_ID, CHOICE_RUN, CHOICE_DEFER, CHOICE_SKIP, CHOICE_NONE,
-      parseBoard, normalizeChoice, boardCounts, boardPrompt,
+      parseBoard, normalizeChoice, boardCounts, boardPrompt, pickTargetSession, BOARD_TARGET_KEY,
     }
     return module.exports
   },

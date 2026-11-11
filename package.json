@@ -1,6 +1,6 @@
 {
   "name": "dsh-task-launcher",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "在会话标题下的页签行（「会话文件」左侧）加一个「任务」入口：下拉自动列出所有启用的定时任务，点一条先弹确认，确认后把该任务的提醒原文投进当前会话立即执行；另有一条内置兜底项「未缴费清单」，以及「待确认清单」（读工作区 dsh-confirm-board.json，逐条勾执行/暂缓/不做后一次性投递）。纯客户端插件（宿主半边故意为空），只读，不改核心、不碰台账文件。 | A Tasks entry in the session tab row (left of Session files): the menu lists every active scheduled task, asks for confirmation, then posts that task's own reminder text into the current session; one built-in fallback entry for the unpaid-fee list.",
   "keywords": [
     "dsh",

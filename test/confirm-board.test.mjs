@@ -90,7 +90,9 @@ eq('done 不可选（decision=none）', closed.items[0].decision, 'none')
 eq('archived 大小写无关', closed.items[1].state, 'archived')
 eq('open 保留原档', closed.items[2].state, 'open')
 eq('终态单列计数、不进 total', T.boardCounts(closed.items, {}), { run: 0, defer: 1, skip: 0, none: 0, total: 1, done: 1, archived: 1 })
-eq('终态不参与投递', T.boardPrompt(closed.items, { x: 'run', y: 'run', z: 'defer' }, {}), '')
+const closedPrompt = T.boardPrompt(closed.items, { x: 'run', y: 'run', z: 'defer' }, {})
+eq('终态不出现在投递文本里', closedPrompt.includes('已完成项') || closedPrompt.includes('归档项'), false)
+eq('暂缓项照样写出来', closedPrompt.includes('暂缓项'), true)
 
 console.log('boardPrompt')
 const text = T.boardPrompt(items, { a: 'run', d: 'run' }, { batch: 'B1' })
@@ -100,7 +102,59 @@ eq('执行两条', text.includes('1. 甲') && text.includes('2. 丁'), true)
 eq('暂缓段', text.includes('暂缓') && text.includes('- 乙'), true)
 eq('归档段', text.includes('归档') && text.includes('- 丙'), true)
 eq('提示回写文件', text.includes('dsh-confirm-board.json'), true)
-eq('零执行 ⇒ 空串', T.boardPrompt(items, { a: 'skip', b: 'skip', c: 'skip', d: 'skip' }, {}), '')
+const allSkip = T.boardPrompt(items, { a: 'skip', b: 'skip', c: 'skip', d: 'skip' }, {})
+eq('全标「不做」也能提交（非空）', allSkip !== '', true)
+eq('全「不做」的表头说明没有要执行的', allSkip.includes('没有要执行的条目'), true)
+eq('全「不做」要求标 archived', allSkip.includes('archived'), true)
+eq('一个都没标 ⇒ 空串', T.boardPrompt(items.map((row) => ({ ...row, decision: 'none' })), {}, {}), '')
+
+console.log('二次确认（在当前会话执行？）')
+eq('有 askTitle 文案', src.includes("'board.askTitle': '在当前会话执行？'"), true)
+eq('主按钮走第一步 askBoardConfirm', src.includes('onClick: askBoardConfirm'), true)
+eq('第二道弹框挂进返回值', src.includes('boardDialog, boardAskDialog'), true)
+eq('弹出时收起列表框', src.includes('open: boardOpen && !boardAsk'), true)
+
+console.log('按标题绑定投递目标')
+const rows = [
+  { id: 'old', title: '任务清单', updatedAt: 100 },
+  { id: 'new', title: '任务清单', updatedAt: 900 },
+  { id: 'other', title: '别的会话', updatedAt: 999 },
+]
+eq('同名取最近更新的', T.pickTargetSession(rows, '任务清单').id, 'new')
+eq('唯一标题照样命中', T.pickTargetSession(rows, '别的会话').id, 'other')
+eq('不绑 ⇒ null', T.pickTargetSession(rows, ''), null)
+eq('只有空白 ⇒ null', T.pickTargetSession(rows, '  '), null)
+eq('找不到 ⇒ null', T.pickTargetSession(rows, '任务清单2'), null)
+eq('空列表 ⇒ null', T.pickTargetSession([], '任务清单'), null)
+eq('绑定存在 localStorage 键', typeof T.BOARD_TARGET_KEY, 'string')
+
+console.log('跳过二次确认开关')
+eq('开关有文案', src.includes("'board.skipAsk': '绑定固定会话时不再弹二次确认'"), true)
+eq('绑定固定会话才跳', src.includes("if (boardTarget !== '' && boardSkipAsk)"), true)
+eq('开关存在本地', src.includes('BOARD_SKIP_ASK_KEY'), true)
+eq('目标丢失时打开确认框自救', src.includes("setBoardAsk(true)\n              settle('failed', t('board.targetMissing'"), true)
+
+console.log('底部「投递到」')
+eq('底部有投递到下拉', src.includes("className: 'dsh-board-setting'"), true)
+eq('打开时先捞会话列表', src.includes('refreshTargets()') && src.includes('const refreshTargets = () =>'), true)
+eq('有刷新按钮', src.includes("'board.targetRefresh'"), true)
+eq('可输入＋可筛（datalist）', src.includes("list: 'dsh-board-targets'") && src.includes('commitTargetDraft'), true)
+
+console.log('投递目标真的传下去了吗')
+{
+  const captured = []
+  const ctx = { remote: { session: { prompt: (request) => { captured.push(request); return Promise.resolve({ ok: true }) } } } }
+  const host = T.createRemoteHost(ctx, {
+    getSessionId: () => 'CURRENT-SESSION',
+    getSessionTitle: () => '当前会话',
+    label: 'test',
+    t: (key) => key,
+  })
+  host.sendPrompt('TARGET-SESSION', 'hello')
+  eq('用的是目标会话 id', captured[0] && captured[0].sessionId, 'TARGET-SESSION')
+  eq('没有串成当前会话', captured[0] && captured[0].sessionId === 'CURRENT-SESSION', false)
+  eq('内容原样带上', captured[0] && captured[0].content[0].text, 'hello')
+}
 
 console.log('')
 console.log(pass + ' passed, ' + fail + ' failed')
